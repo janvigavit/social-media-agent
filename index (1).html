@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Social Media Agent — AI Assistant</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#ffffff;--surface:#f7f8fa;--border:#e5e7eb;
+    --text:#1f2328;--muted:#57606a;--accent:#3b82d4;
+    --purple:#7c5cd8;--green:#22c55e;--red:#ef4444;
+    --sidebar-w:240px;--header-h:56px;
+  }
+  body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;font-size:14px;line-height:1.6;color:var(--text);background:var(--bg);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+  /* ── Header ── */
+  header{height:var(--header-h);background:var(--text);color:#fff;display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
+  header svg{width:28px;height:28px;flex-shrink:0}
+  header h1{font-size:16px;font-weight:600;letter-spacing:.3px}
+  header span{margin-left:auto;font-size:12px;color:#aab;background:rgba(255,255,255,.1);padding:3px 10px;border-radius:20px}
+
+  /* ── Layout ── */
+  .layout{display:flex;flex:1;overflow:hidden}
+
+  /* ── Sidebar ── */
+  aside{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+  .sidebar-section{padding:12px 8px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  .tool-btn{display:flex;align-items:center;gap:9px;padding:8px 12px;border:none;background:transparent;width:100%;text-align:left;font-size:13px;color:var(--text);cursor:pointer;border-radius:6px;margin:1px 4px;width:calc(100% - 8px)}
+  .tool-btn:hover{background:var(--border)}
+  .tool-btn.active{background:var(--accent);color:#fff}
+  .tool-btn .icon{width:18px;height:18px;flex-shrink:0;opacity:.8}
+  .tool-btn.active .icon{opacity:1}
+
+  /* ── Main ── */
+  main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+  /* ── Tool Panel ── */
+  .tool-panel{flex:1;overflow-y:auto;padding:24px;display:none}
+  .tool-panel.active{display:block}
+  .panel-title{font-size:18px;font-weight:700;margin-bottom:4px}
+  .panel-desc{color:var(--muted);font-size:13px;margin-bottom:20px}
+
+  /* ── Form elements ── */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  .form-grid.single{grid-template-columns:1fr}
+  .field{display:flex;flex-direction:column;gap:5px}
+  label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  input,select,textarea{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;color:var(--text);background:var(--bg);outline:none;transition:border .15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  textarea{resize:vertical;min-height:80px}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s}
+  .btn:hover{opacity:.88}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-purple{background:var(--purple);color:#fff}
+  .btn-sm{padding:5px 12px;font-size:12px}
+  .tag{display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;margin:3px;cursor:pointer}
+  .tag:hover{background:var(--border)}
+
+  /* ── Output card ── */
+  .output-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:18px;position:relative}
+  .output-card h3{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .output-content{white-space:pre-wrap;font-size:13px;line-height:1.75;color:var(--text)}
+  .copy-btn{position:absolute;top:12px;right:12px;background:var(--border);border:none;border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;color:var(--muted)}
+  .copy-btn:hover{background:var(--accent);color:#fff}
+
+  /* ── Loading ── */
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── Chat panel ── */
+  .chat-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:76%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.7}
+  .msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:3px}
+  .msg.assistant{align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:3px;white-space:pre-wrap}
+  .msg.system{align-self:center;background:transparent;color:var(--muted);font-size:12px;font-style:italic;border:none;padding:4px}
+  .chat-input-row{border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:8px}
+  .chat-input-row textarea{flex:1;min-height:42px;max-height:160px;padding:9px 12px;font-size:13px;border-radius:8px}
+  .platform-pills{padding:6px 16px;display:flex;gap:6px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .pill{padding:4px 12px;border:1px solid var(--border);border-radius:20px;font-size:12px;cursor:pointer;background:var(--bg);color:var(--muted)}
+  .pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  /* ── Calendar ── */
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px}
+  .cal-day{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;min-height:70px;font-size:11px}
+  .cal-day-name{font-weight:700;font-size:10px;text-align:center;padding:4px;color:var(--muted)}
+  .cal-event{background:var(--accent);color:#fff;border-radius:4px;padding:2px 5px;margin-top:3px;font-size:10px;line-height:1.4}
+
+  /* ── Tabs ── */
+  .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
+  .tab{padding:8px 14px;border:none;background:transparent;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--muted)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+  /* ── Metrics ── */
+  .metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+  .metric-value{font-size:24px;font-weight:700;color:var(--accent)}
+  .metric-label{font-size:11px;color:var(--muted);margin-top:3px}
+
+  /* ── Error ── */
+  .error-box{background:#fff5f5;border:1px solid #fca5a5;border-radius:6px;padding:12px;color:var(--red);font-size:13px;margin-top:14px}
+  .success-box{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:12px;color:#166534;font-size:13px;margin-top:14px}
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <svg viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="14" r="13" fill="#3b82d4" opacity=".15"/>
+    <path d="M7 14 C7 9 14 5 20 9 C22 10.5 22 13 20 14.5 C18 16 15 15.5 14 17 C13 18.5 14 21 12 22 C10 23 7 21 7 18" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <circle cx="20" cy="9" r="2" fill="#fff" opacity=".9"/>
+  </svg>
+  <h1>Social Media Agent</h1>
+  <span>Powered by Groq · llama-3.3-70b</span>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="sidebar-section">Chat</div>
+    <button class="tool-btn active" onclick="showTool('chat')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z"/></svg>
+      AI Chat Assistant
+    </button>
+
+    <div class="sidebar-section">Content</div>
+    <button class="tool-btn" onclick="showTool('caption')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 010 2.828L7 15.828 3 17l1.172-4L15.586 2.586a2 2 0 012.828 0z"/></svg>
+      Caption Generator
+    </button>
+    <button class="tool-btn" onclick="showTool('hashtag')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 4H7L5 16h2l.5-3h3l-.5 3h2l2-12h-2l-.5 3h-3L9 4zm-1 5l.5-3h3l-.5 3H8z"/></svg>
+      Hashtag Strategy
+    </button>
+    <button class="tool-btn" onclick="showTool('ideas')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.298.025-.597.025-.9C12 11 13 9 14 8a5 5 0 10-8 4c1 1 2 3 2 2.9V14h4z"/></svg>
+      Post Ideas
+    </button>
+    <button class="tool-btn" onclick="showTool('adcopy')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 000 2h14a1 1 0 100-2H3zM3 8a1 1 0 000 2h8a1 1 0 100-2H3zM3 12a1 1 0 000 2h5a1 1 0 100-2H3z"/></svg>
+      Ad Copy
+    </button>
+
+    <div class="sidebar-section">Strategy</div>
+    <button class="tool-btn" onclick="showTool('calendar')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a1 1 0 000 2h1v1a1 1 0 002 0V5h4v1a1 1 0 002 0V5h1a1 1 0 100-2h-1V2a1 1 0 10-2 0v1H8V2a1 1 0 10-2 0v1H5zM3 8a1 1 0 000 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a1 1 0 100-2H3z"/></svg>
+      Content Calendar
+    </button>
+    <button class="tool-btn" onclick="showTool('strategy')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+      Marketing Strategy
+    </button>
+
+    <div class="sidebar-section">Analysis</div>
+    <button class="tool-btn" onclick="showTool('trends')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/></svg>
+      Trend Analysis
+    </button>
+    <button class="tool-btn" onclick="showTool('competitor')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+      Competitor Analysis
+    </button>
+    <button class="tool-btn" onclick="showTool('sentiment')">
+      <svg class="icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14a6 6 0 110-12 6 6 0 010 12zm-2-6a2 2 0 104 0 2 2 0 00-4 0zm-1.5-3a.75.75 0 100-1.5.75.75 0 000 1.5zm7 0a.75.75 0 100-1.5.75.75 0 000 1.5zm-5 5s1 2 3 2 3-2 3-2"/></svg>
+      Brand Sentiment
+    </button>
+  </aside>
+
+  <!-- Main content -->
+  <main>
+
+    <!-- ── CHAT ── -->
+    <div id="tool-chat" class="tool-panel active" style="padding:0;display:flex;flex-direction:column;overflow:hidden">
+      <div class="platform-pills" id="chatPlatformPills">
+        <span style="font-size:12px;color:var(--muted);line-height:28px;margin-right:4px">Platform focus:</span>
+        <button class="pill active" onclick="setPlatform('General')">General</button>
+        <button class="pill" onclick="setPlatform('Instagram')">Instagram</button>
+        <button class="pill" onclick="setPlatform('LinkedIn')">LinkedIn</button>
+        <button class="pill" onclick="setPlatform('X / Twitter')">X / Twitter</button>
+        <button class="pill" onclick="setPlatform('Facebook')">Facebook</button>
+        <button class="pill" onclick="setPlatform('YouTube')">YouTube</button>
+        <button class="pill" onclick="setPlatform('TikTok')">TikTok</button>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="msg system">👋 Hi! I'm your Social Media Agent. Select a platform above, then ask me anything — content ideas, captions, strategies, ad copy, trends, and more.</div>
+      </div>
+      <div class="chat-input-row">
+        <textarea id="chatInput" placeholder="Ask anything about social media…" rows="2" onkeydown="chatKeydown(event)"></textarea>
+        <button class="btn btn-primary" id="chatSendBtn" onclick="sendChat()">
+          <span id="chatBtnText">Send</span>
+          <span id="chatSpinner" class="spinner" style="display:none"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── CAPTION GENERATOR ── -->
+    <div id="tool-caption" class="tool-panel">
+      <div class="panel-title">✍️ Caption Generator</div>
+      <div class="panel-desc">Generate engaging, platform-optimised captions for your posts.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Platform</label>
+          <select id="cap-platform">
+            <option>Instagram</option><option>LinkedIn</option><option>X / Twitter</option>
+            <option>Facebook</option><option>YouTube</option><option>TikTok</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tone</label>
+          <select id="cap-tone">
+            <option>Professional</option><option>Casual &amp; Friendly</option><option>Humorous</option>
+            <option>Inspirational</option><option>Educational</option><option>Promotional</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Topic / Post Description</label>
+          <textarea id="cap-topic" placeholder="Describe your post, product, or message…"></textarea>
+        </div>
+        <div class="field">
+          <label>Target Audience</label>
+          <input type="text" id="cap-audience" placeholder="e.g. fitness enthusiasts, B2B marketers…" />
+        </div>
+        <div class="field">
+          <label>Include CTA?</label>
+          <select id="cap-cta">
+            <option>Yes — include a call-to-action</option><option>No CTA needed</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Number of Variants</label>
+          <select id="cap-variants">
+            <option value="1">1</option><option value="3" selected>3</option><option value="5">5</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="cap-btn" onclick="runTool('caption')">
+        <span id="cap-btn-text">Generate Captions</span>
+        <span id="cap-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="cap-output"></div>
+    </div>
+
+    <!-- ── HASHTAG STRATEGY ── -->
+    <div id="tool-hashtag" class="tool-panel">
+      <div class="panel-title"># Hashtag Strategy</div>
+      <div class="panel-desc">Get a targeted hashtag mix — broad reach, niche, and branded tags.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Platform</label>
+          <select id="hash-platform">
+            <option>Instagram</option><option>LinkedIn</option><option>X / Twitter</option>
+            <option>Facebook</option><option>TikTok</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Industry / Niche</label>
+          <input type="text" id="hash-niche" placeholder="e.g. fitness, SaaS, food blogging…" />
+        </div>
+        <div class="field">
+          <label>Post Topic</label>
+          <textarea id="hash-topic" placeholder="Brief description of your post…"></textarea>
+        </div>
+        <div class="field">
+          <label>Brand / Account Name (optional)</label>
+          <input type="text" id="hash-brand" placeholder="Your brand name for branded hashtags" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="hash-btn" onclick="runTool('hashtag')">
+        <span id="hash-btn-text">Generate Hashtags</span>
+        <span id="hash-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="hash-output"></div>
+    </div>
+
+    <!-- ── POST IDEAS ── -->
+    <div id="tool-ideas" class="tool-panel">
+      <div class="panel-title">💡 Post Ideas</div>
+      <div class="panel-desc">Generate a batch of creative post ideas tailored to your brand and goals.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Platform</label>
+          <select id="ideas-platform">
+            <option>Instagram</option><option>LinkedIn</option><option>X / Twitter</option>
+            <option>Facebook</option><option>YouTube</option><option>TikTok</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Goal</label>
+          <select id="ideas-goal">
+            <option>Brand Awareness</option><option>Lead Generation</option><option>Engagement</option>
+            <option>Product Launch</option><option>Community Building</option><option>Sales</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Business / Brand Description</label>
+          <textarea id="ideas-brand" placeholder="Briefly describe your business or brand…"></textarea>
+        </div>
+        <div class="field">
+          <label>Number of Ideas</label>
+          <select id="ideas-count">
+            <option value="5">5</option><option value="10" selected>10</option><option value="15">15</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="ideas-btn" onclick="runTool('ideas')">
+        <span id="ideas-btn-text">Generate Ideas</span>
+        <span id="ideas-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="ideas-output"></div>
+    </div>
+
+    <!-- ── AD COPY ── -->
+    <div id="tool-adcopy" class="tool-panel">
+      <div class="panel-title">📢 Ad Copy Generator</div>
+      <div class="panel-desc">Create high-converting ad copy for paid social campaigns.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Platform</label>
+          <select id="ad-platform">
+            <option>Meta (Facebook &amp; Instagram)</option><option>LinkedIn Ads</option>
+            <option>X / Twitter Ads</option><option>TikTok Ads</option><option>YouTube Ads</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Ad Objective</label>
+          <select id="ad-objective">
+            <option>Conversions</option><option>Traffic</option><option>Brand Awareness</option>
+            <option>Lead Generation</option><option>App Install</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Product / Service</label>
+          <textarea id="ad-product" placeholder="Describe your product or service…"></textarea>
+        </div>
+        <div class="field">
+          <label>Target Audience</label>
+          <input type="text" id="ad-audience" placeholder="Demographics, interests, pain points…" />
+        </div>
+        <div class="field">
+          <label>Unique Selling Point (USP)</label>
+          <input type="text" id="ad-usp" placeholder="What makes you different?" />
+        </div>
+        <div class="field">
+          <label>Offer / CTA</label>
+          <input type="text" id="ad-offer" placeholder="e.g. 30% off, Free trial, Book now" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="ad-btn" onclick="runTool('adcopy')">
+        <span id="ad-btn-text">Generate Ad Copy</span>
+        <span id="ad-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="ad-output"></div>
+    </div>
+
+    <!-- ── CONTENT CALENDAR ── -->
+    <div id="tool-calendar" class="tool-panel">
+      <div class="panel-title">📅 Content Calendar</div>
+      <div class="panel-desc">Generate a 1-week content calendar with post ideas, timing, and platform guidance.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Brand / Business</label>
+          <input type="text" id="cal-brand" placeholder="e.g. Artisan Coffee Co." />
+        </div>
+        <div class="field">
+          <label>Industry</label>
+          <input type="text" id="cal-industry" placeholder="e.g. Food &amp; Beverage, SaaS, Fashion" />
+        </div>
+        <div class="field">
+          <label>Platforms (comma-separated)</label>
+          <input type="text" id="cal-platforms" value="Instagram, LinkedIn, X" />
+        </div>
+        <div class="field">
+          <label>Campaign Theme (optional)</label>
+          <input type="text" id="cal-theme" placeholder="e.g. Summer Sale, Product Launch" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="cal-btn" onclick="runTool('calendar')">
+        <span id="cal-btn-text">Generate Calendar</span>
+        <span id="cal-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="cal-output"></div>
+    </div>
+
+    <!-- ── MARKETING STRATEGY ── -->
+    <div id="tool-strategy" class="tool-panel">
+      <div class="panel-title">📊 Marketing Strategy</div>
+      <div class="panel-desc">Get a tailored social media marketing strategy with KPIs and action steps.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Business Type</label>
+          <input type="text" id="strat-business" placeholder="e.g. E-commerce clothing brand" />
+        </div>
+        <div class="field">
+          <label>Budget Range</label>
+          <select id="strat-budget">
+            <option>Organic (no paid budget)</option><option>$500–$2,000/mo</option>
+            <option>$2,000–$10,000/mo</option><option>$10,000+/mo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Primary Goal</label>
+          <select id="strat-goal">
+            <option>Grow Followers</option><option>Drive Website Traffic</option>
+            <option>Generate Leads</option><option>Increase Sales</option><option>Build Community</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Current Challenges</label>
+          <textarea id="strat-challenges" placeholder="What's not working? What do you struggle with?"></textarea>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="strat-btn" onclick="runTool('strategy')">
+        <span id="strat-btn-text">Build Strategy</span>
+        <span id="strat-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="strat-output"></div>
+    </div>
+
+    <!-- ── TREND ANALYSIS ── -->
+    <div id="tool-trends" class="tool-panel">
+      <div class="panel-title">📈 Trend Analysis</div>
+      <div class="panel-desc">Analyse current social media trends and how to leverage them for your brand.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Industry / Niche</label>
+          <input type="text" id="trend-industry" placeholder="e.g. Health &amp; Wellness, FinTech" />
+        </div>
+        <div class="field">
+          <label>Platform</label>
+          <select id="trend-platform">
+            <option>Instagram</option><option>TikTok</option><option>LinkedIn</option>
+            <option>X / Twitter</option><option>YouTube</option><option>All Platforms</option>
+          </select>
+        </div>
+        <div class="field single">
+          <label>Specific Topic or Trend to Analyse (optional)</label>
+          <input type="text" id="trend-topic" placeholder="e.g. short-form video, AI tools, sustainability…" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="trend-btn" onclick="runTool('trends')">
+        <span id="trend-btn-text">Analyse Trends</span>
+        <span id="trend-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="trend-output"></div>
+    </div>
+
+    <!-- ── COMPETITOR ANALYSIS ── -->
+    <div id="tool-competitor" class="tool-panel">
+      <div class="panel-title">🔍 Competitor Analysis</div>
+      <div class="panel-desc">Analyse competitor social media strategies and find opportunities.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Your Business</label>
+          <input type="text" id="comp-business" placeholder="Brief description of your brand" />
+        </div>
+        <div class="field">
+          <label>Platform</label>
+          <select id="comp-platform">
+            <option>Instagram</option><option>LinkedIn</option><option>X / Twitter</option>
+            <option>Facebook</option><option>YouTube</option><option>TikTok</option>
+          </select>
+        </div>
+        <div class="field single">
+          <label>Competitor Names / Handles (comma-separated)</label>
+          <input type="text" id="comp-competitors" placeholder="e.g. @Nike, @Adidas, @NewBalance" />
+        </div>
+      </div>
+      <button class="btn btn-primary" id="comp-btn" onclick="runTool('competitor')">
+        <span id="comp-btn-text">Analyse Competitors</span>
+        <span id="comp-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="comp-output"></div>
+    </div>
+
+    <!-- ── BRAND SENTIMENT ── -->
+    <div id="tool-sentiment" class="tool-panel">
+      <div class="panel-title">💬 Brand Sentiment Analyser</div>
+      <div class="panel-desc">Analyse the sentiment and perception of your brand based on user comments or reviews.</div>
+      <div class="form-grid single">
+        <div class="field">
+          <label>Brand Name</label>
+          <input type="text" id="sent-brand" placeholder="e.g. Apple, your startup name…" />
+        </div>
+        <div class="field">
+          <label>Comments / Reviews / Mentions (paste up to 20)</label>
+          <textarea id="sent-comments" style="min-height:160px" placeholder="Paste comments, reviews, or social mentions here — one per line…"></textarea>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="sent-btn" onclick="runTool('sentiment')">
+        <span id="sent-btn-text">Analyse Sentiment</span>
+        <span id="sent-spinner" class="spinner" style="display:none"></span>
+      </button>
+      <div id="sent-output"></div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────
+const GROQ_API_KEY = "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";
+const GROQ_MODEL   = "llama-3.3-70b-versatile";
+const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+
+const SYSTEM_PROMPT = `You are Social Media Agent, an expert AI assistant specialising in social media marketing across Instagram, LinkedIn, X (Twitter), Facebook, YouTube, and TikTok. 
+
+You help users create, analyse, and optimise social media content. You:
+- Generate engaging captions, hashtags, post ideas, content calendars, ad copy, and marketing strategies
+- Analyse trends, audience engagement, competitor strategies, and brand sentiment
+- Provide actionable, specific recommendations with concise explanations
+- Format responses clearly using headings, bullet points, numbered lists, and tables where helpful
+- Always tailor advice to the specific platform's culture, format, and best practices
+- Never generate misleading, harmful, or copyrighted content
+
+Be direct, creative, data-informed, and practical. Prioritise quality over quantity.`;
+
+let currentPlatform = "General";
+let chatHistory = [];
+
+// ─── Navigation ────────────────────────────────────────────
+function showTool(id) {
+  document.querySelectorAll(".tool-panel").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".tool-btn").forEach(b => b.classList.remove("active"));
+  const panel = document.getElementById("tool-" + id);
+  if (panel) panel.classList.add("active");
+  event.currentTarget.classList.add("active");
+}
+
+function setPlatform(name) {
+  currentPlatform = name;
+  document.querySelectorAll(".pill").forEach(p => {
+    p.classList.toggle("active", p.textContent.trim() === name);
+  });
+}
+
+// ─── Groq API ──────────────────────────────────────────────
+async function callGroq(messages, temperature = 0.8) {
+  const res = await fetch(GROQ_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + GROQ_API_KEY
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: messages,
+      temperature: temperature,
+      max_tokens: 2048
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+// ─── Chat ──────────────────────────────────────────────────
+function chatKeydown(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+async function sendChat() {
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const sendBtn = document.getElementById("chatSendBtn");
+  const btnText = document.getElementById("chatBtnText");
+  const spinner = document.getElementById("chatSpinner");
+  sendBtn.disabled = true;
+  btnText.style.display = "none";
+  spinner.style.display = "inline-block";
+  input.value = "";
+
+  appendMsg("user", text);
+
+  const platformNote = currentPlatform !== "General"
+    ? `\n\n[Platform context: ${currentPlatform}]`
+    : "";
+
+  chatHistory.push({ role: "user", content: text + platformNote });
+
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...chatHistory.slice(-12)
+  ];
+
+  try {
+    const reply = await callGroq(messages, 0.75);
+    chatHistory.push({ role: "assistant", content: reply });
+    appendMsg("assistant", reply);
+  } catch (err) {
+    appendMsg("assistant", "⚠️ Error: " + err.message + "\n\nPlease check your API key or try again.");
+  } finally {
+    sendBtn.disabled = false;
+    btnText.style.display = "inline";
+    spinner.style.display = "none";
+  }
+}
+
+function appendMsg(role, text) {
+  const msgs = document.getElementById("chatMessages");
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ─── Tool Runners ──────────────────────────────────────────
+const toolConfigs = {
+  caption: {
+    btn: "cap-btn", btnText: "cap-btn-text", spinner: "cap-spinner", output: "cap-output",
+    buildPrompt: () => {
+      const platform = document.getElementById("cap-platform").value;
+      const tone     = document.getElementById("cap-tone").value;
+      const topic    = document.getElementById("cap-topic").value;
+      const audience = document.getElementById("cap-audience").value;
+      const cta      = document.getElementById("cap-cta").value;
+      const variants = document.getElementById("cap-variants").value;
+      if (!topic.trim()) throw new Error("Please describe your post topic.");
+      return `Generate ${variants} distinct, engaging ${platform} caption variant(s) for the following:
+
+Topic/Description: ${topic}
+Platform: ${platform}
+Tone: ${tone}
+Target Audience: ${audience || "general audience"}
+Call-to-Action: ${cta}
+
+Requirements:
+- Respect ${platform}'s character limits and best practices
+- Each variant should use a different hook or angle
+- Include relevant emoji where appropriate
+- Format: clearly label each variant (Variant 1, 2, 3…)
+- After captions, add a brief note on why each variant works`;
+    }
+  },
+  hashtag: {
+    btn: "hash-btn", btnText: "hash-btn-text", spinner: "hash-spinner", output: "hash-output",
+    buildPrompt: () => {
+      const platform = document.getElementById("hash-platform").value;
+      const niche    = document.getElementById("hash-niche").value;
+      const topic    = document.getElementById("hash-topic").value;
+      const brand    = document.getElementById("hash-brand").value;
+      if (!niche.trim()) throw new Error("Please enter your industry or niche.");
+      return `Create a complete hashtag strategy for ${platform} for the following:
+
+Industry/Niche: ${niche}
+Post Topic: ${topic || "general brand content"}
+Brand Name: ${brand || "N/A"}
+
+Provide:
+1. **High-reach tags** (5–8): Very popular, broad audience (include expected follower counts if known)
+2. **Mid-range tags** (8–12): Niche but active communities
+3. **Low-competition tags** (5–8): Easier to rank, targeted audience
+4. **Branded tags** (2–4): Custom tags for the brand
+5. **Total recommended set** ready to copy-paste
+6. **Strategy tip**: best practices for using these on ${platform} (rotation, placement, volume)`;
+    }
+  },
+  ideas: {
+    btn: "ideas-btn", btnText: "ideas-btn-text", spinner: "ideas-spinner", output: "ideas-output",
+    buildPrompt: () => {
+      const platform = document.getElementById("ideas-platform").value;
+      const goal     = document.getElementById("ideas-goal").value;
+      const brand    = document.getElementById("ideas-brand").value;
+      const count    = document.getElementById("ideas-count").value;
+      if (!brand.trim()) throw new Error("Please describe your business or brand.");
+      return `Generate ${count} creative, specific ${platform} post ideas for:
+
+Business/Brand: ${brand}
+Goal: ${goal}
+Platform: ${platform}
+
+For each idea provide:
+- **Post format** (carousel, reel, static, story, poll, etc.)
+- **Hook/Title** (the attention-grabbing first line)
+- **Core content** (2–3 sentences describing what the post contains)
+- **Why it works** for the ${goal} goal
+
+Make them varied — different formats, angles, and content types. Be specific, not generic.`;
+    }
+  },
+  adcopy: {
+    btn: "ad-btn", btnText: "ad-btn-text", spinner: "ad-spinner", output: "ad-output",
+    buildPrompt: () => {
+      const platform   = document.getElementById("ad-platform").value;
+      const objective  = document.getElementById("ad-objective").value;
+      const product    = document.getElementById("ad-product").value;
+      const audience   = document.getElementById("ad-audience").value;
+      const usp        = document.getElementById("ad-usp").value;
+      const offer      = document.getElementById("ad-offer").value;
+      if (!product.trim()) throw new Error("Please describe your product or service.");
+      return `Write high-converting ad copy for ${platform} with the objective of ${objective}.
+
+Product/Service: ${product}
+Target Audience: ${audience || "general audience"}
+Unique Selling Point: ${usp || "not specified"}
+Offer/CTA: ${offer || "not specified"}
+
+Provide 3 ad copy variants, each including:
+- **Headline** (under 40 characters for Meta/TikTok, as appropriate)
+- **Primary text / Body** (full ad copy)
+- **Call-to-action button text**
+- **Why this variant works** (1 line)
+
+Also include:
+- 3 suggested visual/creative directions
+- Audience targeting recommendations for ${platform}
+- A/B testing suggestion for these variants`;
+    }
+  },
+  calendar: {
+    btn: "cal-btn", btnText: "cal-btn-text", spinner: "cal-spinner", output: "cal-output",
+    buildPrompt: () => {
+      const brand     = document.getElementById("cal-brand").value;
+      const industry  = document.getElementById("cal-industry").value;
+      const platforms = document.getElementById("cal-platforms").value;
+      const theme     = document.getElementById("cal-theme").value;
+      if (!brand.trim() || !industry.trim()) throw new Error("Please fill in brand and industry fields.");
+      return `Create a detailed 7-day social media content calendar for:
+
+Brand: ${brand}
+Industry: ${industry}
+Platforms: ${platforms}
+Campaign Theme: ${theme || "general brand building"}
+
+Format as a table with columns: Day | Platform | Post Type | Topic/Hook | Best Time to Post | Caption Snippet | Hashtag Category
+
+After the table, provide:
+- Content mix breakdown (educational/entertaining/promotional ratio)
+- 3 quick-win tips for this specific brand and industry combo
+- Notes on cross-platform repurposing opportunities`;
+    }
+  },
+  strategy: {
+    btn: "strat-btn", btnText: "strat-btn-text", spinner: "strat-spinner", output: "strat-output",
+    buildPrompt: () => {
+      const business   = document.getElementById("strat-business").value;
+      const budget     = document.getElementById("strat-budget").value;
+      const goal       = document.getElementById("strat-goal").value;
+      const challenges = document.getElementById("strat-challenges").value;
+      if (!business.trim()) throw new Error("Please describe your business.");
+      return `Build a comprehensive social media marketing strategy for:
+
+Business: ${business}
+Budget: ${budget}
+Primary Goal: ${goal}
+Current Challenges: ${challenges || "none specified"}
+
+Include:
+## 1. Platform Recommendations
+Which platforms to focus on and why (prioritised list)
+
+## 2. Content Strategy
+- Content pillars (3–4 core themes)
+- Posting frequency per platform
+- Content mix (% educational, entertainment, promotional, UGC)
+
+## 3. Growth Tactics
+Specific, actionable tactics to achieve ${goal}
+
+## 4. KPIs & Metrics
+Key metrics to track, target benchmarks, review cadence
+
+## 5. 30-Day Action Plan
+Week-by-week priorities
+
+## 6. Budget Allocation (if applicable)
+How to distribute ${budget} across channels and content types`;
+    }
+  },
+  trends: {
+    btn: "trend-btn", btnText: "trend-btn-text", spinner: "trend-spinner", output: "trend-output",
+    buildPrompt: () => {
+      const industry = document.getElementById("trend-industry").value;
+      const platform = document.getElementById("trend-platform").value;
+      const topic    = document.getElementById("trend-topic").value;
+      if (!industry.trim()) throw new Error("Please enter your industry or niche.");
+      return `Analyse current social media trends for:
+
+Industry/Niche: ${industry}
+Platform: ${platform}
+Specific Topic: ${topic || "general trends"}
+
+Provide:
+## 1. Top 5 Trends Right Now
+For each trend:
+- What it is and why it's growing
+- Examples of brands doing it well
+- How a ${industry} brand can leverage it
+
+## 2. Content Formats Trending on ${platform}
+With engagement data and examples
+
+## 3. Emerging Trends to Watch
+2–3 trends gaining momentum that are early-mover opportunities
+
+## 4. Declining Tactics to Avoid
+What's losing effectiveness
+
+## 5. Trend Capitalisation Roadmap
+3 specific actions to take in the next 30 days`;
+    }
+  },
+  competitor: {
+    btn: "comp-btn", btnText: "comp-btn-text", spinner: "comp-spinner", output: "comp-output",
+    buildPrompt: () => {
+      const business     = document.getElementById("comp-business").value;
+      const platform     = document.getElementById("comp-platform").value;
+      const competitors  = document.getElementById("comp-competitors").value;
+      if (!competitors.trim()) throw new Error("Please enter at least one competitor.");
+      return `Perform a social media competitor analysis on ${platform} for:
+
+Our Business: ${business || "not specified"}
+Competitors: ${competitors}
+Platform: ${platform}
+
+Analyse and provide:
+## 1. Competitor Overview
+For each competitor, assess their likely:
+- Content strategy and pillars
+- Posting frequency and formats
+- Engagement tactics
+- Strengths and weaknesses
+
+## 2. Competitive Landscape Summary
+Key patterns, what most competitors do well/poorly
+
+## 3. Gap Analysis
+Opportunities they're missing that we can exploit
+
+## 4. Differentiation Strategy
+How to stand out from these competitors on ${platform}
+
+## 5. Quick Wins
+3–5 actionable tactics to outperform competitors in the next 60 days`;
+    }
+  },
+  sentiment: {
+    btn: "sent-btn", btnText: "sent-btn-text", spinner: "sent-spinner", output: "sent-output",
+    buildPrompt: () => {
+      const brand    = document.getElementById("sent-brand").value;
+      const comments = document.getElementById("sent-comments").value;
+      if (!comments.trim()) throw new Error("Please paste some comments or reviews to analyse.");
+      return `Perform a brand sentiment analysis for "${brand || "the brand"}" based on these comments/reviews:
+
+---
+${comments}
+---
+
+Provide:
+## 1. Overall Sentiment Score
+Positive / Neutral / Negative breakdown (as percentages)
+
+## 2. Sentiment Themes
+Key recurring positive themes, negative themes, and neutral observations
+
+## 3. Notable Comments
+Flag the most impactful positive comment, most concerning negative comment, and a constructive suggestion
+
+## 4. Brand Perception Summary
+How customers perceive the brand overall in 3–5 sentences
+
+## 5. Actionable Recommendations
+- How to amplify positive sentiment
+- How to address negative sentiment
+- 3 specific content ideas that respond to this feedback
+
+## 6. Risk Flags
+Any comments that indicate potential PR issues or urgent concerns`;
+    }
+  }
+};
+
+async function runTool(toolId) {
+  const cfg = toolConfigs[toolId];
+  const btn     = document.getElementById(cfg.btn);
+  const btnText = document.getElementById(cfg.btnText);
+  const spinner = document.getElementById(cfg.spinner);
+  const output  = document.getElementById(cfg.output);
+
+  let prompt;
+  try {
+    prompt = cfg.buildPrompt();
+  } catch (e) {
+    output.innerHTML = `<div class="error-box">⚠️ ${e.message}</div>`;
+    return;
+  }
+
+  btn.disabled = true;
+  btnText.style.display = "none";
+  spinner.style.display = "inline-block";
+  output.innerHTML = "";
+
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: prompt }
+  ];
+
+  try {
+    const result = await callGroq(messages, 0.78);
+    output.innerHTML = `
+      <div class="output-card">
+        <h3>Generated Output</h3>
+        <button class="copy-btn" onclick="copyOutput('${toolId}')">Copy</button>
+        <div class="output-content" id="output-text-${toolId}">${escapeHtml(result)}</div>
+      </div>`;
+  } catch (err) {
+    output.innerHTML = `<div class="error-box">⚠️ API Error: ${escapeHtml(err.message)}<br><small>Check your internet connection or API key.</small></div>`;
+  } finally {
+    btn.disabled = false;
+    btnText.style.display = "inline";
+    spinner.style.display = "none";
+  }
+}
+
+function copyOutput(toolId) {
+  const el = document.getElementById("output-text-" + toolId);
+  if (!el) return;
+  const text = el.textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = el.parentElement.querySelector(".copy-btn");
+      btn.textContent = "Copied!";
+      setTimeout(() => btn.textContent = "Copy", 2000);
+    });
+  }
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+</script>
+
+</body>
+</html>
